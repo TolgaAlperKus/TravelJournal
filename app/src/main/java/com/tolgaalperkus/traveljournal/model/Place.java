@@ -1,6 +1,8 @@
 package com.tolgaalperkus.traveljournal.model;
 
-public class Place {
+import java.io.Serializable;
+
+public class Place implements Serializable {
 
     public String name;
     public Double latitude;

@@ -42,6 +42,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     LocationListener locationListener;
     SQLiteDatabase database;
 
+    //Kullanıcı geri tuşuna bastığında Listviewı yenileyen
+    //onCreate methodunun tekrar çalışmasını sağlamak için onBackPressed oluşturdum.
     @Override
     public void onBackPressed() {
 
@@ -57,11 +59,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
-        // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
     }
+
 
     @Override
     public void onMapReady(GoogleMap googleMap) {
@@ -69,6 +71,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mMap.setOnMapLongClickListener(this);
 
         Intent intent = getIntent();
+        //putExtra ile daha önce aktiviteye gönderdiğimiz info keyine ait değeri kontrol ediyorum.
+        //Bu kontrol ile kullanıcının listeden veya konum ekle butonu ile mi geldiğini anlıyorum.
+
         String info = intent.getStringExtra("info");
 
         if(info.matches("new")){
@@ -77,7 +82,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             locationListener = new LocationListener() {
                 @Override
                 public void onLocationChanged(@NonNull Location location) {
-
+                    //Kullanıcıdan konumu yalnızca bir defa alıp sürekli olarak
+                    //olduğu konuma sabitlenmesini engellemek için trackboolean ile kontrol ekledim.
                     SharedPreferences sharedPreferences = MapsActivity.this.getSharedPreferences("com.tolgaalperkus.traveljournal",MODE_PRIVATE);
                     boolean trackBoolean = sharedPreferences.getBoolean("trackBoolean",false);
 
@@ -89,7 +95,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
                 }
             };
-
+            //Izinlerin kontrolu yapılıyor kullanıcı bir kere izin verdiyse tekrar sorulmuyor.
+            //izin verilmişse kullanıcının en son bilinen konumu gps üzerinden alınarak kaydedilip
+            //uygulamayı tekrar açtığında aynı konumdan devam etmesini sağladım.
             if
             (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED){
                 ActivityCompat.requestPermissions(this,new String[]{Manifest.permission.ACCESS_FINE_LOCATION},1);
@@ -101,9 +109,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(lastUserLocation,15));
                 }
             }
-        }else{
-            //Sqlite data & intent data
-
+        }else//intent ile aldığımız info "old" ise bu kısım çalışıyor.
+            {
+                //Liste üzerinde tıklanmış konum bilgisi içindeki enlem ve boylamı alarak
+                //map üzerinde konuma odaklanmayı sağladım.
             Place place = (Place)intent.getSerializableExtra("place");
             LatLng latLng = new LatLng(place.latitude,place.longitude);
             String placeName = place.name;
@@ -118,7 +127,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
 
-
+    //Daha önceden konum bilgisine erişim izni verildiyse bu kısım çalışıyor ve aynı işlemleri yapıyor.
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -135,7 +144,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                             mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(lastUserLocation,15));
                         }
                     }else{
-                        //sqlite & intent data
                         Place place = (Place)intent.getSerializableExtra("place");
                         LatLng latLng = new LatLng(place.latitude,place.longitude);
                         String placeName = place.name;
@@ -148,12 +156,15 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             }
         }
     }
-
+    //Map üzerinde uzun tıklama gerçekleştirildiğinde alınan latitude ve longitude değerlerine göre
+    //Geocoder ile reverse geocoding yaparak enlem boylam değerlerini adres bilgilerine
+    //dönüştürüp sonrasında marker ile gösterilmesini sağladım.
     @Override
     public void onMapLongClick(LatLng latLng) {
 
         Geocoder geocoder = new Geocoder(getApplicationContext(), Locale.getDefault());
         String address = "";
+        String fullAddress ="";
 
         try {
             List<Address> addressList = geocoder.getFromLocation(latLng.latitude,latLng.longitude,1);
@@ -163,6 +174,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     if(addressList.get(0).getSubThoroughfare()!=null){
                         address +=" ";
                         address += addressList.get(0).getSubThoroughfare();
+                        if(addressList.get(0).getAddressLine(0)!=null){
+                            fullAddress += addressList.get(0).getAddressLine(0);
+                        }
                     }
                 }
             }
@@ -175,8 +189,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         Double latitude = latLng.latitude;
         Double longitude = latLng.longitude;
 
-        final Place place = new Place(address,latitude , longitude);
-
+        final Place place = new Place(address,fullAddress,latitude , longitude);
+        //Uzun tıklama hareketinin yanlışlıkla yapılmış olma ihtimalinden dolayı alertDialog ile
+        //kullanıcıdan onay istedim.
         AlertDialog.Builder alertDialog = new AlertDialog.Builder(MapsActivity.this);
         alertDialog.setCancelable(false);
         alertDialog.setTitle("Burası kaydedilsin mi?");
@@ -184,17 +199,19 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         alertDialog.setPositiveButton("Evet", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
-                //Sqlite kaydedilen kısım
+                //Database yok ise yeni bir database oluşturup var ise üzerine ekleyerek
+                //kullanıcının tıkladığı konum bilgilerini kaydediyorum.
                 try {
                     database = MapsActivity.this.openOrCreateDatabase("Places", MODE_PRIVATE, null);
-                    database.execSQL("CREATE TABLE IF NOT EXISTS places (id INTEGER PRIMARY KEY ,name VARCHAR,latitude VARCHAR,longitude VARCHAR)");
+                    database.execSQL("CREATE TABLE IF NOT EXISTS places (id INTEGER PRIMARY KEY ,name VARCHAR,address VARCHAR,latitude VARCHAR,longitude VARCHAR)");
 
-                    String toCompile = "INSERT INTO places (name,latitude,longitude) VALUES (?,?,?)";
+                    String toCompile = "INSERT INTO places (name,address,latitude,longitude) VALUES (?,?,?,?)";
 
                     SQLiteStatement sqLiteStatement = database.compileStatement(toCompile);
                     sqLiteStatement.bindString(1,place.name);
-                    sqLiteStatement.bindString(2, String.valueOf(place.latitude));
-                    sqLiteStatement.bindString(3, String.valueOf(place.longitude));
+                    sqLiteStatement.bindString(2,place.fullAddress);
+                    sqLiteStatement.bindString(3, String.valueOf(place.latitude));
+                    sqLiteStatement.bindString(4, String.valueOf(place.longitude));
                     sqLiteStatement.execute();
 
                     Toast.makeText(getApplicationContext(),"Kayıt Başarılı!",Toast.LENGTH_LONG).show();

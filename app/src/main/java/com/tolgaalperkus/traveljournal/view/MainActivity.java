@@ -29,6 +29,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
+        //Oluşturduğumuz menü xmlinin buradan yönetileceğini belirtiyorum.
         MenuInflater menuInflater = getMenuInflater();
         menuInflater.inflate(R.menu.add_place,menu);
         return super.onCreateOptionsMenu(menu);
@@ -36,8 +37,10 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        //Menüde konum ekleye tıklandığında haritaya yönlendiriliyor.
         if (item.getItemId()==R.id.add_place){
             Intent intent = new Intent(this, MapsActivity.class);
+            //Putextra ile kullanıcının yeni bir konum oluşturacağı bilgisini gönderiyorum
             intent.putExtra("info","new");
             startActivity(intent);
 
@@ -55,26 +58,32 @@ public class MainActivity extends AppCompatActivity {
     }
     //Database den verilerin ekrana çıkacağı kısım
     public void getData(){
+
         customAdapter = new CustomAdapter(this,placeList);
 
         try {
-
+            //sqlite üzerinden aldığımız verileri placesList içine ekliyoruz
             database = this.openOrCreateDatabase("Places",MODE_PRIVATE,null);
             Cursor cursor = database.rawQuery("SELECT * FROM places",null);
 
             int nameIx = cursor.getColumnIndex("name");
+            int addressIx = cursor.getColumnIndex("address");
             int latitudeIx = cursor.getColumnIndex("latitude");
             int longitudeIx= cursor.getColumnIndex("longitude");
 
+
             while(cursor.moveToNext()){
                 String nameFromDatabase = cursor.getString(nameIx);
+                String addressFromDatabase = cursor.getString(addressIx);
                 String latitudeFromDatabase = cursor.getString(latitudeIx);
                 String longitudeFromDatabase = cursor.getString(longitudeIx);
 
                 Double latitude = Double.parseDouble(latitudeFromDatabase);
                 Double longitude = Double.parseDouble(longitudeFromDatabase);
 
-                Place place = new Place (nameFromDatabase,latitude,longitude);
+                //Databaseden aldığımız veriler ile place objesi oluşturuyorum.
+                //Sonrasında oluşturulan place objesini placeList ArrayListe ekliyorum.
+                Place place = new Place (nameFromDatabase,addressFromDatabase,latitude,longitude);
                 placeList.add(place);
             }
             customAdapter.notifyDataSetChanged();
@@ -84,7 +93,11 @@ public class MainActivity extends AppCompatActivity {
             e.printStackTrace();
         }
         listView.setAdapter(customAdapter);
-
+        /*
+        Listede herhangi bir elemana tıklayan kullanıcının
+        listeden tıklayarak geldiğini anlamak için oluşturduğumuz "old" değeri ve
+        tıkladığı konum bilgisi ile MapsActiviteye yönlendiriyorum
+        */
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {

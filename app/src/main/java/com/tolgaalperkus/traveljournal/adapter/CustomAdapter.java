@@ -14,7 +14,9 @@ import com.tolgaalperkus.traveljournal.R;
 import com.tolgaalperkus.traveljournal.model.Place;
 
 import java.util.ArrayList;
-
+//CustomAdapter ile listviewdaki rowların dolduruyorum
+//Arraylist içindeki place elemanlarımızı normal adapter ile kullanamadığımızdan
+//CustomAdapter oluşturup bu sorunu çözmüş oldum.
 public class CustomAdapter extends ArrayAdapter<Place> {
 
     ArrayList<Place> placeList;
@@ -30,10 +32,19 @@ public class CustomAdapter extends ArrayAdapter<Place> {
     @NonNull
     @Override
     public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
+        //LayoutInflater ile xml layoutumuzu burada dinamik şekilde değiştirmeyi mümkün hale getiriyoruz
+        /*
+        Parametre olarak aldığımız placeList içindeki place elemanlarının isim ve
+        tam adreslerini gerekli textviewlara set ediyorum.
+         */
         LayoutInflater layoutInflater = LayoutInflater.from(parent.getContext());
         View customView = layoutInflater.inflate(R.layout.custom_list_row,parent,false);
         TextView nameTextView = customView.findViewById(R.id.nameTextView);
+        TextView addressTextView = customView.findViewById(R.id.addressTextView);
+
         nameTextView.setText(placeList.get(position).name);
+        addressTextView.setText(placeList.get(position).fullAddress);
+
 
         return customView;
     }
